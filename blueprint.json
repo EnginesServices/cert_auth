@@ -15,8 +15,250 @@
         "level": "alpha",
         "patch": 0
       }
-    }
+    },
+    "timestamp": "2017-07-03T16:30:12+10:00"
   },
   "software": {
+    "base": {
+      "name": "cert_auth",
+      "accepts": [
+        "ManagedEngine",
+        "ManagesService"
+      ],
+      "publisher_namespace": "EnginesSystem",
+      "type_path": "cert_auth",
+      "service_handle_field": "cert_name",
+      "parent_image": "engines/servicebase",
+      "run_as_user": "certs",
+      "deployment_type": "worker",
+      "memory": {
+        "required": 16,
+        "recommended": 32
+      },
+      "persistent": true,
+      "attach_post_build": true
+    },
+    "scripts": {
+      "start": {
+        "language": "sh",
+        "content": "#!/bin/sh\r\n\r\n\r\nPID_FILE=/tmp/.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n\r\n\r\ntouch /engines/var/run/flags/startup_complete\r\n\twhile test 4 -ne 3\r\n\tdo \r\n\t    sleep 500 &\r\n\t    echo $! >/tmp/.pid\r\n\t\twait \r\n\t\texit_code=$?\r\n\tdone\t\r\n\r\nrm -f /engines/var/run/flags/startup_complete\r\nexit $exit_code"
+      },
+      "install": {
+        "language": "sh",
+        "content": "mkdir -p /home/certs/saved /home/certs/store/ca /home/certs/store/keys /home/certs/store/certs /home/certs/home &&\\\r\n\tchown certs -R /home/certs/saved /home/certs/store/ /home/configurators/saved/ /home/certs/home &&\\\r\n\tchgrp -R containers /home/actionators/ &&\\\r\n\tchmod -R go-rw /etc/sudoers /etc/sudoers.d/"
+      }
+    },
+    "system_packages": [
+      {
+        "package": "openssl"
+      }
+    ],
+    "service_configurations": [
+      {
+        "publisher_namespace": "EnginesSystem",
+        "type_path": "filesystem/local/filesystem",
+        "variables": {
+          "service_name": "store",
+          "volume_src": "cert_auth",
+          "engine_path": " /home/certs/store/",
+          "permissions": "rw",
+          "user": "22022",
+          "group": "22022"
+        }
+      }
+    ],
+    "environment_variables": [
+      {
+        "name": "HOME",
+        "value": "/home/certs/home",
+        "immutable": true,
+        "input": {
+          "type": "string"
+        }
+      }
+    ],
+    "constants": [
+      {
+        "name": "backup_support",
+        "value": "true"
+      }
+    ],
+    "template_files": [
+      {
+        "path": "/etc/sudoers.d/cert_auth",
+        "content": "certs ALL = (root) NOPASSWD: /home/engines/scripts/_start_syslog.sh\r\ncerts ALL = (root) NOPASSWD: /home/install_target.sh \r\ncerts ALL = (root) NOPASSWD: /home/engines/scripts/_kill_syslog.sh\r\ncerts ALL = (root) NOPASSWD: /home/remove.sh\r\n#must have blank after last sudoers line"
+      },
+      {
+        "path": "/etc/ssl/openssl.cnf",
+        "content": "\r\nHOME                    = /home/certs/store/\r\nRANDFILE                = $ENV::HOME/.rnd\r\n\r\n# Extra OBJECT IDENTIFIER info:\r\n#oid_file               = $ENV::HOME/.oid\r\noid_section             = new_oids\r\n\r\n[ new_oids ]\r\n\r\n\r\n# Policies used by the TSA examples.\r\ntsa_policy1 = 1.2.3.4.1\r\ntsa_policy2 = 1.2.3.4.5.6\r\ntsa_policy3 = 1.2.3.4.5.7\r\n\r\n####################################################################\r\n[ ca ]\r\ndefault_ca      = CA_default            # The default ca section\r\n\r\n####################################################################\r\n[ CA_default ]\r\ncopy_extensions = copy\r\ndir             = /home/certs/store/              # Where everything is kept\r\ncerts           = $dir/public/certs            # Where the issued certs are kept\r\ncrl_dir         = $dir/crl              # Where the issued crl are kept\r\ndatabase        = $dir/index.txt        # database index file.\r\n#unique_subject = no                    # Set to 'no' to allow creation of\r\n                                        # several ctificates with same subject.\r\nnew_certs_dir   = $dir/newcerts         # default place for new certs.\r\nnew_certs_dir   = $dir/newcerts         # default place for new certs.\r\n\r\ncertificate     = $dir/public/ca/certs/system_CA.pem       # The CA certificate\r\nserial          = $dir/serial           # The current serial number\r\ncrlnumber       = $dir/crlnumber        # the current crl number\r\n                                        # must be commented out to leave a V1 CRL\r\ncrl             = $dir/crl.pem          # The current CRL\r\nprivate_key     = $dir/private/ca/keys/system_CA.key # The private key\r\nRANDFILE        = $dir/private/.rand    # private random number file\r\n\r\nx509_extensions = usr_cert              # The extentions to add to the cert\r\n\r\n# Comment out the following two lines for the \"traditional\"\r\n# (and highly broken) format.\r\nname_opt        = ca_default            # Subject Name options\r\ncert_opt        = ca_default            # Certificate field options\r\n\r\n# Extension copying option: use with caution.\r\n# copy_extensions = copy\r\n\r\n# Extensions to add to a CRL. Note: Netscape communicator chokes on V2 CRLs\r\n# so this is commented out by default to leave a V1 CRL.\r\n# crlnumber must also be commented out to leave a V1 CRL.\r\n# crl_extensions        = crl_ext\r\n\r\ndefault_days    = 365                   # how long to certify for\r\ndefault_crl_days= 30                    # how long before next CRL\r\ndefault_md      = default               # use public key default MD\r\npreserve        = no                    # keep passed DN ordering\r\n\r\n# A few difference way of specifying how similar the request should look\r\n# For type CA, the listed attributes must be the same, and the optional\r\n# and supplied fields are just that :-)\r\npolicy          = policy_match\r\n\r\n# For the CA policy\r\n[ policy_match ]\r\ncountryName             = match\r\nstateOrProvinceName     = match\r\norganizationName        = match\r\norganizationalUnitName  = optional\r\ncommonName              = supplied\r\nemailAddress            = optional\r\n\r\n# For the 'anything' policy\r\n# At this point in time, you must list all acceptable 'object'\r\n# types.\r\n# At this point in time, you must list all acceptable 'object'\r\n# types.\r\n[ policy_anything ]\r\ncountryName             = optional\r\nstateOrProvinceName     = optional\r\nlocalityName            = optional\r\norganizationName        = optional\r\norganizationalUnitName  = optional\r\ncommonName              = supplied\r\nemailAddress            = optional\r\n\r\n####################################################################\r\n[ req ]\r\ndefault_bits            = 2048\r\ndefault_keyfile         = privkey.pem\r\ndistinguished_name      = req_distinguished_name\r\nattributes              = req_attributes\r\nx509_extensions = v3_ca # The extentions to add to the self signed cert\r\nreq_extensions = v3_req\r\n\r\n\r\nstring_mask = utf8only\r\n\r\n# req_extensions = v3_req # The extensions to add to a certificate request\r\n\r\n[ req_distinguished_name ]\r\ncountryName                     = Country Name (2 letter code)\r\ncountryName_default             = AU\r\ncountryName_min                 = 2\r\ncountryName_max                 = 2\r\n\r\nstateOrProvinceName             = State or Province Name (full name)\r\nstateOrProvinceName_default     = Some-State\r\n\r\nlocalityName                    = Locality Name (eg, city)\r\n\r\n0.organizationName              = Organization Name (eg, company)\r\n0.organizationName_default      = Internet Widgits Pty Ltd\r\n# we can do this but it is not needed normally :-)\r\n#1.organizationName             = Second Organization Name (eg, company)\r\n#1.organizationName_default     = World Wide Web Pty Ltd\r\n\r\norganizationalUnitName          = Organizational Unit Name (eg, section)\r\n#organizationalUnitName_default =\r\n\r\ncommonName                      = Common Name (e.g. server FQDN or YOUR name)\r\ncommonName_max                  = 64\r\n\r\nemailAddress                    = Email Address\r\nemailAddress_max                = 64\r\n\r\n# SET-ex3                       = SET extension number 3\r\n\r\n[ req_attributes ]\r\nchallengePassword               = A challenge password\r\nchallengePassword_min           = 4\r\nchallengePassword_max           = 20\r\n\r\nunstructuredName                = An optional company name\r\n\r\n[ usr_cert ]\r\n\r\n# These extensions are added when 'ca' signs a request.\r\n\r\n# This goes against PKIX guidelines but some CAs do it and some software\r\n# requires this to avoid interpreting an end user certificate as a CA.\r\n\r\nbasicConstraints=CA:FALSE\r\n\r\n\r\n\r\n# This will be displayed in Netscape's comment listbox.\r\nnsComment                       = \"OpenSSL Generated Certificate\"\r\n\r\n# PKIX recommendations harmless if included in all certificates.\r\nsubjectKeyIdentifier=hash\r\nauthorityKeyIdentifier=keyid,issuer\r\n\r\n\r\n\r\n# Copy subject details\r\n# issuerAltName=issuer:copy\r\nsubjectAltName=email:copy\r\n\r\n\r\n# This is required for TSA certificates.\r\n# extendedKeyUsage = critical,timeStamping\r\n\r\n[ v3_req ]\r\n\r\n# Extensions to add to a certificate request\r\n\r\nbasicConstraints = CA:FALSE\r\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\r\n\r\n[ v3_ca ]\r\n #subjectAltName      = commonName:copy\r\n\r\n\r\n# Extensions for a typical CA\r\n\r\n\r\n# PKIX recommendation.\r\n\r\nsubjectKeyIdentifier=hash\r\nauthorityKeyIdentifier=keyid:always,issuer\r\n\r\n\r\nbasicConstraints = CA:true\r\n\r\n\r\n\r\n\r\n\r\n[ crl_ext ]\r\n\r\n# CRL extensions.\r\n# Only issuerAltName and authorityKeyIdentifier make any sense in a CRL.\r\n\r\n# issuerAltName=issuer:copy\r\nauthorityKeyIdentifier=keyid:always\r\n\r\n[ proxy_cert_ext ]\r\n# These extensions should be added when creating a proxy certificate\r\n\r\n# This goes against PKIX guidelines but some CAs do it and some software\r\n# requires this to avoid interpreting an end user certificate as a CA.\r\n\r\nbasicConstraints=CA:FALSE\r\n\r\n\r\n\r\nnsComment                       = \"OpenSSL Generated Certificate\"\r\n\r\n# PKIX recommendations harmless if included in all certificates.\r\nsubjectKeyIdentifier=hash\r\nauthorityKeyIdentifier=keyid,issuer\r\n\r\n# This stuff is for subjectAltName and issuerAltname.\r\n# Import the email address.\r\n# subjectAltName=email:copy\r\n# An alternative to produce certificates that aren't\r\n# deprecated according to PKIX.\r\n# subjectAltName=email:move\r\n\r\n# Copy subject details\r\n# issuerAltName=issuer:copy\r\n\r\n#nsCaRevocationUrl              = http://www.domain.dom/ca-crl.pem\r\n#nsBaseUrl\r\n#nsRevocationUrl\r\n#nsRenewalUrl\r\n#nsCaPolicyUrl\r\n#nsSslServerName\r\n\r\n# This really needs to be in place for it to be a proxy certificate.\r\nproxyCertInfo=critical,language:id-ppl-anyLanguage,pathlen:3,policy:foo\r\n\r\n####################################################################\r\n[ tsa ]\r\n\r\ndefault_tsa = tsa_config1       # the default TSA section\r\n\r\n[ tsa_config1 ]\r\n\r\n# These are used by the TSA reply generation only.\r\ndir             = ./demoCA              # TSA root directory\r\nserial          = $dir/tsaserial        # The current serial number (mandatory)\r\ncrypto_device   = builtin               # OpenSSL engine to use for signing\r\nsigner_cert     = $dir/tsacert.pem      # The TSA signing certificate\r\n                                        # (optional)\r\ncerts           = $dir/cacert.pem       # Certificate chain to include in reply\r\n                                        # (optional)\r\nsigner_key      = $dir/private/tsakey.pem # The TSA private key (optional)\r\n\r\ndefault_policy  = tsa_policy1           # Policy if request did not specify it\r\n                                        # (optional)\r\nother_policies  = tsa_policy2, tsa_policy3      # acceptable policies (optional)\r\ndigests         = md5, sha1             # Acceptable message digests (mandatory)\r\naccuracy        = secs:1, millisecs:500, microsecs:100  # (optional)\r\nclock_precision_digits  = 0     # number of digits after dot. (optional)\r\nordering                = yes   # Is ordering defined for timestamps?\r\n                                # (optional, default: no)\r\ntsa_name                = yes   # Must the TSA name be included in the reply?\r\n                                # (optional, default: no)\r\ness_cert_id_chain       = no    # Must the ESS cert id chain be included?\r\n                                # (optional, default: no)\r\n\r\n"
+      },
+      {
+        "path": "/home/remove.sh",
+        "language": "sh",
+        "content": "#!/bin/sh\r\n\r\nrm \"/home/certs/store/public/$1\""
+      },
+      {
+        "path": "/home/install_target.sh",
+        "language": "sh",
+        "content": "#!/bin/bash\r\n\r\ninstall_target=$1\r\ncert_name=$2\r\ndomain_name=$3\r\n\r\nfunction install_cert {\r\nif test -z ${dest_name}\r\n then \r\n \tdest_name=engines\r\nfi\r\nmkdir -p /home/certs/store/services/${service}/certs/\r\nmkdir -p /home/certs/store/services/${service}/keys/\r\n\r\ncp /home/certs/store/public/certs/${cert_name}.crt /home/certs/store/services/${service}/certs/${dest_name}.crt \r\ncp /home/certs/store/public/keys/${cert_name}.key /home/certs/store/services/${service}/keys/${dest_name}.key\r\nchown $id /home/certs/store/services/${service}/keys/${dest_name}.key /home/certs/store/services/${service}/certs/${dest_name}.crt \r\nchmod og-rw /home/certs/store/services/${service}/keys/${dest_name}.key /home/certs/store/services/${service}/certs/${dest_name}.crt \r\n}\r\n\r\nfunction install_system {\r\ndest_name=engines\r\nservice=system\r\nid=21000\r\ninstall_cert\r\n}\r\n\r\nfunction install_smtp {\r\ndest_name=engines\r\nservice=smtp\r\nid=22003\r\ninstall_cert\r\n}\r\n\r\nfunction install_ftp {\r\ndest_name=engines\r\nservice=ftp\r\nid=22010\r\ninstall_cert\r\n}\r\n\r\nfunction install_imap {\r\ndest_name=engines\r\nservice=imap\r\nid=22013\r\ninstall_cert\r\n}\r\n\r\nfunction install_ivpn {\r\nservice=ivpn\r\nid=22031\r\ndest_name=ipvpn\r\ninstall_cert\r\n}\r\n\r\nfunction install_email {\r\ndest_name=engines\r\nservice=email\r\nid=22005\r\ninstall_cert\r\n}\r\nfunction install_pqsql {\r\ndest_name=engines\r\nservice=pqsql\r\nid=22002\r\ninstall_cert\r\n}\r\nfunction install_mysql {\r\ndest_name=engines\r\nservice=mysql\r\nid=22006\r\ninstall_cert\r\n}\r\nfunction install_mgmt  {\r\ndest_name=engines\r\nservice=mgmt\r\nid=22050\r\ninstall_cert\r\n}\r\nfunction install_nginx {\r\nservice=nginx\r\nid=22005\r\ndest_name=${domain_name}\r\ninstall_cert\r\n}\r\n\r\nfunction set_default {\r\ndomain_name=default\r\n\r\nservice=nginx\r\nid=22005\r\nmkdir -p /home/certs/store/services/${service}/certs/\r\nmkdir -p /home/certs/store/services/${service}/keys/\r\ncp /home/certs/store/public/certs/${cert_name}.crt /home/certs/store/services/${service}/certs/default.crt \r\ncp /home/certs/store/public/keys/${cert_name}.key /home/certs/store/services/${service}/keys/default.key\r\nchown $id /home/certs/store/services/${service}/keys/default.key /home/certs/store/services/${service}/certs/default.crt \r\nchmod og-rw /home/certs/store/services/${service}/keys/default.key /home/certs/store/services/${service}/certs/default.crt \r\n\r\n}\r\n\r\n\r\n\r\ncase $install_target in\r\nsmtp)\r\n install_smtp\r\n ;;\r\nimap)\r\n install_imap\r\n ;;\r\nftp)\r\n install_ftp\r\n ;;\r\nivpn)\r\n install_ivpn\r\n ;;\r\nemail)\r\n  install_email\r\n  ;;\r\nmysql)\r\n  install_mysql\r\n  ;;\r\nmgmt)\r\n  install_mgmt\r\n  ;;\r\npqsql)\r\n  install_pqsql\r\n  ;;\r\nsystem)\r\n install_system\r\n ;;\r\ndefault)\r\n  install_system\r\n  install_smtp\r\n  install_imap\r\n  install_ftp\r\n  install_email\r\n  install_mysql\r\n  install_pqsql \r\n  install_mgmt \r\n  domain_name=default\r\n  set_default  \r\n  ;;\r\n*)\r\n  install_nginx\r\n  ;;\r\nesac"
+      }
+    ],
+    "consumer_params": [
+      {
+        "name": "country",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Country code",
+          "hint": "two letter code",
+          "validation": {
+            "pattern": "[a-zA-Z][a-zA-Z]"
+          }
+        }
+      },
+      {
+        "name": "state",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "State"
+        }
+      },
+      {
+        "name": " organisation ",
+        "mandatory": true,
+        "input": {
+          "type": "string",
+          "label": "Organization "
+        }
+      },
+      {
+        "name": "city",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "label": "City"
+        }
+      },
+      {
+        "name": "person",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Person"
+        }
+      },
+      {
+        "name": "cert_name",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Certificate Name"
+        }
+      },
+      {
+        "name": "domainname",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Domain Name"
+        }
+      },
+      {
+        "name": "hostname",
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Host name"
+        }
+      },
+      {
+        "name": "alt_names",
+        "immutable": true,
+        "input": {
+          "type": "string",
+          "title": "Alt names",
+          "comment": "alternative names space seperated"
+        }
+      }
+    ],
+    "configurators": [
+      {
+        "name": "system_ca",
+        "label": "Root Certificate Authority",
+        "description": "Public Cert for key used to signed all Certificates issued by the engines host ",
+        "variables": [
+          {
+            "name": "cert_name",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "Certificate Name"
+            }
+          },
+          {
+            "name": "domainname",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "Domain Name"
+            }
+          },
+          {
+            "name": "person",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "Person"
+            }
+          },
+          {
+            "name": "organisation",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "Organization"
+            }
+          },
+          {
+            "name": "city",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "City"
+            }
+          },
+          {
+            "name": "state",
+            "mandatory": true,
+            "input": {
+              "type": "string",
+              "title": "State"
+            }
+          },
+          {
+            "name": "country",
+            "input": {
+              "type": "string",
+              "title": "Country 2 letter code",
+              "validation": {
+                "pattern": "[a-zA-Z][a-zA-Z]",
+                "message": "Country 2 letter code 2 letters only"
+              }
+            }
+          }
+        ],
+        "script": {
+          "language": "sh",
+          "content": "#!/bin/bash\r\n\r\nif test -f /home/certs/store/private/ca/keys/system_CA.key\r\n\tthen\t\r\n\t# echo \"CA Exists\"\r\n\t# exit 127\r\n    cp /home/certs/store/public/ca/certs/system_CA.pem  /home/certs/store/public/ca/certs/system_CA.pem.bak\r\n    # rm /home/certs/store/public/ca/certs/system_CA.pem\r\n    cp /home/certs/store/private/ca/keys/system_CA.key  /home/certs/store/private/ca/keys/system_CA.key.bak\r\n    #rm /home/certs/store/private/ca/keys/system_CA.key \r\nfi\r\n\r\n. /home/engines/functions/params_to_env.sh\r\nPARAMS_FILE=/home/configurators/saved/ca_setup\r\nparms_to_file_and_env\r\n\r\ncp /home/configurators/saved/ca_setup /home/configurators/saved/ca_params\r\n\r\necho $country >/home/configurators/saved/ca_setup\r\necho $state >>/home/configurators/saved/ca_setup\r\necho $city >>/home/configurators/saved/ca_setup\r\necho $person >>/home/configurators/saved/ca_setup\r\necho $organisation >>/home/configurators/saved/ca_setup\r\ncp /home/configurators/saved/ca_setup /home/configurators/saved/cn_defaults\r\necho $domainname CA  >>/home/configurators/saved/ca_setup\r\necho \"\" >>/home/configurators/saved/ca_setup\r\necho \"\" >>/home/configurators/saved/ca_setup\r\nmkdir -p /home/certs/store/public/ca/keys/\r\nmkdir -p /home/certs/store/public/ca/certs\r\nmkdir -p /home/certs/store/private/ca/keys/\r\nchmod og-rwx  /home/certs/store/private/ca/keys/\r\n \r\nopenssl genrsa -out /home/certs/store/private/ca/keys/system_CA.key 2048\r\nopenssl req -x509 -new -nodes -key /home/certs/store/private/ca/keys/system_CA.key -days 1024 -sha256 -out /home/certs/store/public/ca/certs/system_CA.pem < /home/configurators/saved/ca_setup\r\n        \r\n"
+        }
+      }
+    ]
   }
 }
