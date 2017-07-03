@@ -16,7 +16,7 @@
         "patch": 0
       }
     },
-    "timestamp": "2017-07-03T16:38:26+10:00"
+    "timestamp": "2017-07-03T16:42:34+10:00"
   },
   "software": {
     "base": {
@@ -41,7 +41,7 @@
     "scripts": {
       "start": {
         "language": "sh",
-        "content": "#!/bin/sh\r\n\r\nPID_FILE=/tmp/.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n\r\ntouch /engines/var/run/flags/startup_complete\r\n\r\nwhile test 4 -ne 3\r\n do \r\n    sleep 500 &\r\n    echo $! >/tmp/.pid\r\n\twait \r\n\texit_code=$?\r\ndone\t\r\n\r\nrm -f /engines/var/run/flags/startup_complete\r\nexit $exit_code"
+        "content": "#!/bin/sh\r\nPID_FILE=/tmp/.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n\r\ntouch /engines/var/run/flags/startup_complete\r\n\r\nwhile test 4 -ne 3\r\n do \r\n    sleep 500 &\r\n    echo $! >/tmp/.pid\r\n\twait \r\n\texit_code=$?\r\ndone\t\r\n\r\nrm -f /engines/var/run/flags/startup_complete\r\nexit $exit_code"
       },
       "install": {
         "language": "sh",
