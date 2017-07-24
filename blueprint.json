@@ -16,7 +16,7 @@
         "patch": 0
       }
     },
-    "timestamp": "2017-07-03T16:42:34+10:00"
+    "timestamp": "2017-07-20T11:05:44+10:00"
   },
   "software": {
     "base": {
@@ -64,6 +64,13 @@
           "permissions": "rw",
           "user": "22022",
           "group": "22022"
+        }
+      },
+      {
+        "publisher_namespace": "EnginesSystem",
+        "type_path": "avahi",
+        "variables": {
+          "hostname": " "
         }
       }
     ],
