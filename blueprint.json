@@ -12,11 +12,11 @@
       "version": {
         "major": 1,
         "minor": 0,
-        "level": "beta",
+        "level": "rc",
         "patch": 0
       }
     },
-    "timestamp": "2017-07-28T10:10:01+10:00"
+    "timestamp": "2017-08-31T17:33:15+10:00"
   },
   "software": {
     "base": {
